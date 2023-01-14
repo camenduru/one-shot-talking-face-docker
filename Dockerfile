@@ -4,16 +4,17 @@ ENV DEBIAN_FRONTEND noninteractive
 
 WORKDIR /content
 RUN apt-get update -y && apt-get upgrade -y && apt-get install -y sudo && apt-get install -y python3-pip && pip3 install --upgrade pip
-RUN apt-get install -y curl gnupg wget htop sudo git git-lfs software-properties-common build-essential cmake libgl1 libgtk2.0-0 jq
+RUN apt-get install -y gnupg wget htop sudo git git-lfs software-properties-common build-essential cmake curl
+RUN apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavdevice-dev libgl1 libgtk2.0-0 jq libdc1394-22-dev libraw1394-dev libopenblas-base
 
 ENV PATH="/home/admin/.local/bin:${PATH}"
 
-RUN pip3 install pandas scipy matplotlib torch torchvision torchaudio gradio imageio-ffmpeg pocketsphinx jq
+RUN pip3 install pandas scipy matplotlib torch torchvision torchaudio gradio imageio-ffmpeg pocketsphinx jq "numpy<1.24"
 
 RUN git lfs install
-RUN git clone https://huggingface.co/camenduru/pocketsphinx-20.04 pocketsphinx && cd pocketsphinx && cmake --build build --target install
+RUN git clone https://huggingface.co/camenduru/pocketsphinx-20.04-t4 pocketsphinx && cd pocketsphinx && cmake --build build --target install
 
-RUN git clone https://huggingface.co/camenduru/one-shot-talking-face-20.04 one-shot-talking-face && cd one-shot-talking-face && pip install -r requirements.txt && chmod 755 OpenFace/FeatureExtraction
+RUN git clone https://huggingface.co/camenduru/one-shot-talking-face-20.04-t4 one-shot-talking-face && cd one-shot-talking-face && pip install -r requirements.txt && chmod 755 OpenFace/FeatureExtraction
 RUN mkdir /content/out
 
 COPY app.py /content/app.py
