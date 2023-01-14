@@ -1,37 +1,35 @@
-# https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/11.2.1/ubuntu2004/devel/cudnn8/Dockerfile
-FROM nvidia/cuda:11.2.1-cudnn8-devel-ubuntu20.04
-ENV DEBIAN_FRONTEND noninteractive
+import gradio as gr
+import os, subprocess, torchaudio
+from PIL import Image
 
-WORKDIR /content
-RUN apt-get update -y && apt-get upgrade -y && apt-get install -y sudo && apt-get install -y python3-pip && pip3 install --upgrade pip
-RUN apt-get install -y gnupg wget htop sudo git git-lfs software-properties-common build-essential cmake curl
-RUN apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavdevice-dev libgl1 libgtk2.0-0 jq libdc1394-22-dev libraw1394-dev libopenblas-base
+block = gr.Blocks()
 
-ENV PATH="/home/admin/.local/bin:${PATH}"
+def calculate(image_in, audio_in):
+    waveform, sample_rate = torchaudio.load(audio_in)
+    torchaudio.save("/content/audio.wav", waveform, sample_rate, encoding="PCM_S", bits_per_sample=16)
+    image = Image.open(image_in)
+    image.save("image.png")
 
-RUN pip3 install pandas scipy matplotlib torch torchvision torchaudio gradio imageio-ffmpeg pocketsphinx jq "numpy<1.24"
+    pocketsphinx_run = subprocess.run(['pocketsphinx', '-phone_align', 'yes', 'single', '/content/audio.wav'], check=True, capture_output=True)
+    jq_run = subprocess.run(['jq', '[.w[]|{word: (.t | ascii_upcase | sub("<S>"; "sil") | sub("<SIL>"; "sil") | sub("\\\(2\\\)"; "") | sub("\\\(3\\\)"; "") | sub("\\\(4\\\)"; "") | sub("\\\[SPEECH\\\]"; "SIL") | sub("\\\[NOISE\\\]"; "SIL")), phones: [.w[]|{ph: .t | sub("\\\+SPN\\\+"; "SIL") | sub("\\\+NSN\\\+"; "SIL"), bg: (.b*100)|floor, ed: (.b*100+.d*100)|floor}]}]'], input=pocketsphinx_run.stdout, capture_output=True)
+    with open("test.json", "w") as f:
+        f.write(jq_run.stdout.decode('utf-8').strip())
 
-RUN git lfs install
-RUN git clone https://huggingface.co/camenduru/pocketsphinx-20.04-t4 pocketsphinx && cd pocketsphinx && cmake --build build --target install
+    os.system(f"cd /content/one-shot-talking-face && python3 -B test_script.py --img_path /content/image.png --audio_path /content/audio.wav --phoneme_path /content/test.json --save_dir /content/train")
+    return "/content/train/image_audio.mp4"
+    
+def run():
+  with block:
+    with gr.Group():
+      with gr.Box():
+        with gr.Row().style(equal_height=True):
+          image_in = gr.Image(show_label=False, type="filepath")
+          audio_in = gr.Audio(show_label=False, type='filepath')
+          video_out = gr.Video(show_label=False)
+        with gr.Row().style(equal_height=True):
+          btn = gr.Button("Calculate")          
+    btn.click(calculate, inputs=[image_in, audio_in], outputs=[video_out])
+    block.launch(server_name="0.0.0.0", server_port=7860)
 
-RUN git clone https://huggingface.co/camenduru/one-shot-talking-face-20.04-t4 one-shot-talking-face && cd one-shot-talking-face && pip install -r requirements.txt && chmod 755 OpenFace/FeatureExtraction
-RUN mkdir /content/out
-
-COPY app.py /content/app.py
-COPY audio.wav /content/audio.wav
-COPY image.png /content/image.png
-COPY test.json /content/test.json
-
-RUN adduser --disabled-password --gecos '' admin
-RUN adduser admin sudo
-RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-RUN chown -R admin:admin /content
-RUN chmod -R 777 /content
-RUN chown -R admin:admin /home
-RUN chmod -R 777 /home
-USER admin
-
-EXPOSE 7860
-
-CMD ["python3", "app.py"]
+if __name__ == "__main__":
+    run()
