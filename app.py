@@ -20,6 +20,11 @@ def calculate(image_in, audio_in):
     
 def run():
   with block:
+    gr.Markdown(
+    """
+    <style> body { text-align: right} </style>
+    map: 📄 [arxiv](https://arxiv.org/abs/2112.02749) &nbsp; ⇨ 👩‍💻 [github](https://github.com/FuxiVirtualHuman/AAAI22-one-shot-talking-face) &nbsp; ⇨ 🦒 [colab](https://github.com/camenduru/one-shot-talking-face-colab) &nbsp; ⇨ 🤗 [huggingface](https://huggingface.co/spaces/camenduru/one-shot-talking-face) &nbsp; | &nbsp; tools: 🌀 [duplicate this space](https://huggingface.co/spaces/camenduru/sandbox?duplicate=true) &nbsp; | 🐢 [tortoise tts](https://huggingface.co/spaces/mdnestor/tortoise) &nbsp; | 🎨 [text-to-image](https://huggingface.co/models?pipeline_tag=text-to-image&sort=downloads) &nbsp; | 🐣 [twitter](https://twitter.com/camenduru) &nbsp;
+    """)
     with gr.Group():
       with gr.Box():
         with gr.Row().style(equal_height=True):
@@ -27,8 +32,9 @@ def run():
           audio_in = gr.Audio(show_label=False, type='filepath')
           video_out = gr.Video(show_label=False)
         with gr.Row().style(equal_height=True):
-          btn = gr.Button("Calculate")          
+          btn = gr.Button("Generate")          
     btn.click(calculate, inputs=[image_in, audio_in], outputs=[video_out])
+    block.queue()
     block.launch(server_name="0.0.0.0", server_port=7860)
 
 if __name__ == "__main__":
